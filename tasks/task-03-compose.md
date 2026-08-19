@@ -19,6 +19,10 @@ services:
       - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - prometheus-data:/prometheus
 
+secrets:
+  llama_api_key:
+    environment: LLAMA_API_KEY
+
   grafana:
     image: grafana/grafana:13.2.0
     restart: unless-stopped

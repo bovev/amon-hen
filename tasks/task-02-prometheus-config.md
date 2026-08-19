@@ -21,6 +21,9 @@ storage:
 scrape_configs:
   - job_name: llama_cpp
     metrics_path: /metrics
+    authorization:
+      type: Bearer
+      credentials_file: /run/secrets/llama_api_key
     static_configs:
       - targets:
           - llama-server:8080
