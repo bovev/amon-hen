@@ -1,0 +1,39 @@
+services:
+  prometheus:
+    image: prom/prometheus:v3.13.2
+    restart: unless-stopped
+    networks:
+      - monitoring
+      - llm
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    secrets:
+      - llama_api_key
+
+  grafana:
+    image: grafana/grafana:13.2.0
+    restart: unless-stopped
+    depends_on: [prometheus]
+    ports:
+      - "127.0.0.1:${GRAFANA_PORT:-3001}:3000"
+    networks:
+      - monitoring
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+
+secrets:
+  llama_api_key:
+    environment: LLAMA_API_KEY
+
+networks:
+  monitoring:
+  llm:
+    external: true
+    name: ${LLM_NETWORK}
+
+volumes:
+  prometheus-data:
+  grafana-data:
