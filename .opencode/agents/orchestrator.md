@@ -6,23 +6,23 @@ model: openai/gpt-5.6-sol
 temperature: 0.1
 
 permission:
-edit:
-"*": deny
-"tasks/**": allow
+    edit:
+        "*": deny
+        "tasks/**": allow
 
 bash:
-"*": deny
-"git status*": allow
-"git diff*": allow
-"git log*": allow
-"git rev-parse*": allow
-"git add *": allow
-"git commit *": allow
+    "*": deny
+    "git status*": allow
+    "git diff*": allow
+    "git log*": allow
+    "git rev-parse*": allow
+    "git add *": allow
+    "git commit *": allow
 
 task:
-"*": deny
-"local-coder": allow
-"code-reviewer": allow
+    "*": deny
+    "local-coder": allow
+    "code-reviewer": allow
 ----------------------
 
 You are the engineering orchestrator for this repository.
