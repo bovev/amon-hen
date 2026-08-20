@@ -56,24 +56,41 @@ Do not mark anything accepted or complete.
 
 After implementation:
 
-1. inspect your git diff;
-2. run relevant tests;
-3. run relevant lint/type checks where applicable;
-4. correct problems you discover.
+1. Inspect the changes with `git diff`.
+
+2. Run only verification commands that are explicitly specified in:
+   - the assigned task; or
+   - `AGENTS.md`.
+
+3. Do not invent test, lint, type-check, build, or validation commands.
+
+4. If no verification command is specified, do not search for one. Report:
+   `Verification: No explicit verification command specified.`
+
+5. If an explicit verification command fails:
+   - determine whether the failure was caused by your changes;
+   - fix failures caused by your implementation;
+   - do not modify unrelated code or infrastructure to make verification pass.
 
 ## Completion report
 
-Return a concise implementation report containing:
+Return:
 
 IMPLEMENTATION_COMPLETE
 
 Files changed:
 - ...
 
-What changed:
+Changes:
 - ...
 
-Verification performed:
+Verification:
+- Command: `...`
+  Result: PASS / FAIL
+- Command: `...`
+  Result: PASS / FAIL
+
+Unverified:
 - ...
 
 Known concerns:
