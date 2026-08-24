@@ -1,5 +1,5 @@
 - Docker network name: ai-net          → .env LLM_NETWORK
-- llama-server scrape target: llama-server:8080  → prometheus.yml (literal, per correction #1)
+-llm-server scrape target: llm-server:8080   → prometheus.yml (literal, per correction #1)
 - Metric names present:
   - throughput:
       llamacpp:prompt_tokens_seconds
