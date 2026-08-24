@@ -1,23 +1,23 @@
-# Progress — Task 5 (Prometheus datasource provisioning)
+# Progress — Task 7 (dashboard panels)
 
 IMPLEMENTATION_COMPLETE
 
 ## Files changed
-- `monitoring/grafana/provisioning/datasources/prometheus.yml` (new)
+- `monitoring/grafana/dashboards/llm-overview.json`
+- `scripts/verify.py`
 
 ## What changed
-Provisioned Prometheus as Grafana's default datasource with the stable
-`prometheus` UID and the internal URL `http://prometheus:9090`.
+Built the complete `LLM Overview` dashboard from the metric names recorded in
+`tasks/00-findings.md`, including throughput, request activity, token totals,
+context high-water, and speculative-decoding panels.
 
 ## Verification performed
-- Parsed the provisioning file as YAML and checked every required value.
-- Confirmed the file uses LF line endings.
-- Confirmed the existing Compose mount exposes the file read-only to Grafana.
+- `py scripts/verify.py` passed all 9 checks.
+- Independent code review: `ACCEPT`.
 
 ## Deployment verification pending
-Restart Grafana on the Ubuntu deployment server and confirm the provisioned
-datasource connection succeeds. No deployment host was available from the
-Windows authoring environment.
+Confirm every panel renders real values and that an inference request visibly
+moves the throughput graph on the Ubuntu deployment server.
 
 ## Next
-Task 6 — dashboard provisioning.
+Task 8 — persistence verification.
