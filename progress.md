@@ -1,23 +1,25 @@
-# Progress — Task 7 (dashboard panels)
+# Progress — Task 8 (persistence check)
 
 IMPLEMENTATION_COMPLETE
 
 ## Files changed
-- `monitoring/grafana/dashboards/llm-overview.json`
-- `scripts/verify.py`
+- None (runtime verification task)
 
-## What changed
-Built the complete `LLM Overview` dashboard from the metric names recorded in
-`tasks/00-findings.md`, including throughput, request activity, token totals,
-context high-water, and speculative-decoding panels.
+## What was verified
+- `docker compose down` ran without `-v`, followed by `docker compose up -d`.
+- The `monitoring_prometheus-data` and `monitoring_grafana-data` volumes
+  remained present after the restart.
+- A post-restart query of the unchanged pre-restart time window returned the
+  original `llamacpp:predicted_tokens_seconds` samples.
+- The provisioned `LLM Overview` dashboard loads through the SSH tunnel against
+  the retained Grafana data volume.
 
 ## Verification performed
 - `py scripts/verify.py` passed all 9 checks.
 - Independent code review: `ACCEPT`.
 
-## Deployment verification pending
-Confirm every panel renders real values and that an inference request visibly
-moves the throughput graph on the Ubuntu deployment server.
+## Deployment verification
+Persistence check passed on the Ubuntu deployment server.
 
 ## Next
-Task 8 — persistence verification.
+Task 9 — README and measurements.
