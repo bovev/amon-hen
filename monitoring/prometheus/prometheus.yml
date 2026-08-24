@@ -16,4 +16,4 @@ scrape_configs:
       credentials_file: /run/secrets/llama_api_key
     static_configs:
       - targets:
-          - llama-server:8080
+          - llm-server:8080

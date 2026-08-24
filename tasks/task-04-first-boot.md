@@ -39,7 +39,7 @@ Prometheus is healthy but cannot reach llama-server. Find which half is broken f
 docker compose exec prometheus wget -qO- http://llama-server:8080/metrics | head -5
 ```
 
-- **Name does not resolve** → Prometheus isn't on the `llm` network, or the container name is wrong. Check with `docker network inspect <llm-network>` and confirm the Prometheus container now appears among its members.
+- **Name does not resolve** → Prometheus isn't on the `ai-net` network, or the container name is wrong. Check with `docker network inspect ai-net` and confirm the Prometheus container now appears among its members.
 - **Resolves, connection refused** → wrong port. You probably used the published host port instead of the in-container one.
 
 ## Done when
