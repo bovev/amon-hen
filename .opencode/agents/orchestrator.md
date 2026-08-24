@@ -1,33 +1,88 @@
 ---
-
 description: Controls the task-driven coding workflow, review gate, and accepted Git checkpoints.
 mode: primary
 model: openai/gpt-5.6-sol
 temperature: 0.1
 
 permission:
-    edit:
-        "*": deny
-        "tasks/**": allow
-
-bash:
+  edit:
     "*": deny
+    "tasks/**": allow
+    "progress.md": allow
+
+  webfetch: deny
+
+  bash:
+    # Rules are evaluated last-match-wins, so "*" must stay first.
+    "*": ask
+
+    # Read-only repository inspection.
     "git status*": allow
     "git diff*": allow
     "git log*": allow
+    "git show*": allow
     "git rev-parse*": allow
-    "git add *": allow
-    "git commit *": allow
+    "git ls-files*": allow
+    "git branch*": allow
+    "git remote -v*": allow
+    "git grep*": allow
+    "grep*": allow
+    "rg*": allow
+    "cat*": allow
+    "head*": allow
+    "tail*": allow
+    "ls*": allow
+    "find*": allow
+    "wc*": allow
 
-task:
+    # The single sanctioned verification command (see AGENTS.md).
+    "py scripts/verify.py*": allow
+    "python scripts/verify.py*": allow
+
+    # Accepted checkpoints.
+    "git add*": allow
+    "git commit*": allow
+
+    # Never touch this machine's environment or anything remote.
+    "*--version*": deny
+    "python*": deny
+    "python3*": deny
+    "pip*": deny
+    "node*": deny
+    "npm*": deny
+    "npx*": deny
+    "docker*": deny
+    "ssh*": deny
+    "scp*": deny
+    "curl*": deny
+    "which*": deny
+    "where*": deny
+
+    # Never rewrite history or discard work.
+    "git push*": deny
+    "git reset*": deny
+    "git checkout*": deny
+    "git restore*": deny
+    "git clean*": deny
+    "git rebase*": deny
+    "git stash*": deny
+
+  task:
     "*": deny
     "local-coder": allow
     "code-reviewer": allow
-----------------------
+---
 
 You are the engineering orchestrator for this repository.
 
 Your job is to execute the repository task list safely and sequentially.
+
+## Environment
+
+This is a Windows authoring machine. Nothing in this repository runs here.
+The stack is deployed and verified on a separate Ubuntu server, which is
+outside this workflow. Never run, install, deploy, or probe anything locally,
+and never inspect installed tool versions.
 
 ## Repository State Model
 
@@ -134,6 +189,14 @@ Require a final decision of exactly:
 * `REJECT`
 
 Do not bias the reviewer toward acceptance.
+
+## Verification
+
+`py scripts/verify.py` is the only verification command in this repository.
+Neither you nor the subagents may invent lint, format, schema, frontmatter, or
+build commands. A task requiring runtime verification on the Ubuntu server is
+reported as pending deployment verification and does not block acceptance of
+the authored files.
 
 ## Git Commit
 

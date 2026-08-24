@@ -8,6 +8,12 @@
 * Author files on Windows; run deployment and runtime verification on Ubuntu using Docker Engine and Compose v2 (`docker compose`).
 * Use LF line endings.
 
+## Authoring Machine
+
+Agents run on the Windows authoring box and only edit files. Nothing in this repository runs, builds, installs or deploys here, so there is no environment to inspect: no interpreters, runtimes, package managers, container engines, remote hosts or installed tool versions. Never check for them.
+
+Deployment and runtime verification happen on the Ubuntu server, performed by a human, outside this workflow.
+
 ## Agent Workflow
 
 Use three roles for implementation:
@@ -70,6 +76,12 @@ Use pinned image versions required by the task specifications, named data volume
 * Only create speculative-decoding panels when the deployed server exposes the required counters.
 
 ## Verification
+
+`py scripts/verify.py` is the only verification command in this repository.
+
+It covers every file-level check the tasks require: YAML parsing, JSON parsing, LF line endings, agent frontmatter, and the Compose, Prometheus, datasource and dashboard invariants listed above. Agents must not invent or search for lint, format, schema, frontmatter, type-check or build commands — there are none. If a check is worth running, add it to `scripts/verify.py` instead of running something ad hoc.
+
+Anything the script cannot check from files is runtime verification. It happens on the Ubuntu deployment server, performed by a human, and is reported as `Deployment verification pending` rather than attempted.
 
 Follow task checkpoints instead of implementing the full stack before testing.
 

@@ -6,19 +6,66 @@ temperature: 0.2
 
 permission:
   external_directory: deny
-  edit: allow
+  webfetch: deny
+
+  edit:
+    # Rules are evaluated last-match-wins, so "*" must stay first.
+    "*": allow
+    "tasks/**": deny
+    ".opencode/**": deny
+    "AGENTS.md": deny
+    "CLAUDE.md": deny
+    "scripts/**": deny
+    "**/.env": deny
 
   bash:
     "*": ask
+
+    # Read-only repository inspection.
     "git status*": allow
     "git diff*": allow
+    "git log*": allow
+    "git show*": allow
+    "git ls-files*": allow
     "git grep*": allow
-    "grep *": allow
-    "pytest*": allow
-    "python -m pytest*": allow
-    "npm test*": allow
-    "npm run test*": allow
-    "npm run lint*": allow
+    "grep*": allow
+    "rg*": allow
+    "cat*": allow
+    "head*": allow
+    "tail*": allow
+    "ls*": allow
+    "find*": allow
+    "wc*": allow
+
+    # The single sanctioned verification command (see AGENTS.md).
+    "py scripts/verify.py*": allow
+    "python scripts/verify.py*": allow
+
+    # This machine only authors files. Nothing here runs, installs, or deploys.
+    "*--version*": deny
+    "python*": deny
+    "python3*": deny
+    "pip*": deny
+    "node*": deny
+    "npm*": deny
+    "npx*": deny
+    "docker*": deny
+    "ssh*": deny
+    "scp*": deny
+    "curl*": deny
+    "wget*": deny
+    "which*": deny
+    "where*": deny
+
+    # Repository state belongs to the orchestrator.
+    "git add*": deny
+    "git commit*": deny
+    "git push*": deny
+    "git reset*": deny
+    "git checkout*": deny
+    "git restore*": deny
+    "git clean*": deny
+    "git stash*": deny
 
   task:
     "*": deny
@@ -30,19 +77,18 @@ You receive exactly one task from the orchestrator.
 
 Your responsibility is to implement that task correctly and completely.
 
-Work only within the current repository unless the assigned task explicitly
-requires executing a command against the deployment server.
+## Environment
 
-Never inspect or modify:
+This is a Windows authoring machine and your entire job is editing files in
+this repository. Nothing here runs, builds, or deploys, so there is no
+environment to inspect: no interpreters, runtimes, package managers, container
+engines, remote hosts, or installed tool versions. Never check for them.
 
-- SSH keys or SSH configuration;
-- user credentials;
-- files under the user's home directory;
-- files outside the repository.
-
-When remote execution is required, use only the SSH command or host specified
-by the task or repository instructions. Do not inspect `~/.ssh` to discover
-connection details.
+The stack is deployed and verified on a separate Ubuntu server by a human.
+That is outside your scope. When a task's verification step requires a running
+container, a restarted service, or a live endpoint, do not attempt it and do
+not look for a way to reach it — report it under `Deployment verification
+pending` and finish.
 
 ## Before coding
 
@@ -73,19 +119,19 @@ After implementation:
 
 1. Inspect the changes with `git diff`.
 
-2. Run only verification commands that are explicitly specified in:
-   - the assigned task; or
-   - `AGENTS.md`.
+2. Run `py scripts/verify.py`. It is the only verification command in this
+   repository and it covers YAML parsing, JSON parsing, line endings,
+   frontmatter, and the task-specified configuration invariants.
 
-3. Do not invent test, lint, type-check, build, or validation commands.
+3. Do not invent, search for, or improvise any other test, lint, format,
+   schema, frontmatter, type-check, or build command. There are none.
 
-4. If no verification command is specified, do not search for one. Report:
-   `Verification: No explicit verification command specified.`
+4. If `py scripts/verify.py` reports failures:
+   - fix the failures caused by your changes;
+   - do not modify unrelated code, configuration, or the verify script itself
+     to make it pass.
 
-5. If an explicit verification command fails:
-   - determine whether the failure was caused by your changes;
-   - fix failures caused by your implementation;
-   - do not modify unrelated code or infrastructure to make verification pass.
+5. Anything the script cannot check on this machine is reported, not attempted.
 
 ## Completion report
 
@@ -100,12 +146,10 @@ Changes:
 - ...
 
 Verification:
-- Command: `...`
-  Result: PASS / FAIL
-- Command: `...`
+- Command: `py scripts/verify.py`
   Result: PASS / FAIL
 
-Unverified:
+Deployment verification pending:
 - ...
 
 Known concerns:
