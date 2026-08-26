@@ -53,6 +53,9 @@ Tested and deployed with:
   server exposes the `llamacpp:spec_decode_*` counters:
   `Speculative Acceptance %`, `Speculative Draft Tokens`,
   `Speculative Accepted Draft Tokens`.
+  NOTE: If these panels show no data, it is likely because the `llama-server`
+  upstream (llama.cpp) has not yet merged the PR providing these metrics.
+  The panels are provisioned in anticipation of this upstream change.
 
 ## Measurements
 
