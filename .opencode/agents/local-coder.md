@@ -2,7 +2,7 @@
 description: Implements exactly one assigned coding task using the local LLM.
 mode: subagent
 model: llama.cpp/local
-temperature: 0.2
+temperature: 1.0
 
 permission:
   external_directory: deny
