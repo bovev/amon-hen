@@ -50,6 +50,11 @@ permission:
     "python*": deny
     "python3*": deny
     "pip*": deny
+    # The launcher bypasses the rules above: "py -m pip install x" starts with
+    # neither "python" nor "pip". Installing, serving, or running anything is a
+    # human decision made outside this workflow.
+    "py -m*": deny
+    "*-m pip*": deny
     "node*": deny
     "npm*": deny
     "npx*": deny
@@ -196,6 +201,21 @@ Rules:
 * Missing files must `skip`, not `fail`, so earlier tasks still pass.
 * Confirm the check actually fails on the input it is meant to catch before
   reporting `PASS`, and say so in the completion report.
+
+### Tests
+
+Only Phase 2's GPU exporter has code worth unit-testing. Its tests are `pytest`
+files under `monitoring/exporters/gpu/tests/`, run against committed fixtures of
+`rocm-smi --json` output — never against the real tool, which does not exist
+here. Test the pure functions: parsing a payload, rendering Prometheus text,
+handling a field the card does not report.
+
+You cannot run them. `py scripts/verify.py` is still your only command; it runs
+`pytest` for you and reports the result as one line, or skips when `pytest` is
+not installed. Do not try to invoke `pytest` yourself, and do not install it.
+
+The same rules apply as to check modules: add, never weaken or delete. A test
+that would also pass against a broken implementation is worse than no test.
 
 ## Completion report
 

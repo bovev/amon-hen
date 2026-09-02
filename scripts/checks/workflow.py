@@ -213,6 +213,8 @@ SHARED_BASH_DENY = (
     "python*",
     "python3*",
     "pip*",
+    "py -m*",
+    "*-m pip*",
     "node*",
     "npm*",
     "npx*",

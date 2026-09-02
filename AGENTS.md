@@ -126,21 +126,28 @@ Checks report missing files as `SKIP`, never `FAIL`, so early tasks pass before 
 loopback, that a dashboard uses the right datasource UID. Phase 2 introduces the
 first real **code** in this repository, the AMD GPU exporter, and assertions
 about code are unit tests. Keep the two apart: no check module imports exporter
-internals, and no test reads `monitoring/`.
+internals, and no exporter test reads the Compose, Prometheus or Grafana
+configuration.
 
-Exporter tests are `pytest`, living beside the code in `exporters/gpu/tests/`,
-driven by fixture files of `rocm-smi --json` output captured from the real card
-and committed. Test the pure functions only — parsing a payload, rendering
-Prometheus text, handling a field the hardware does not report. Nothing invokes
-`rocm-smi`; it does not exist on the authoring machine and no agent may run it.
+Exporter tests are `pytest`, living beside the code in
+`monitoring/exporters/gpu/tests/`, driven by fixture files of `rocm-smi --json`
+output captured from the real card and committed. Test the pure functions
+only — parsing a payload, rendering Prometheus text, handling a field the
+hardware does not report. Nothing invokes `rocm-smi`; it does not exist on the
+authoring machine and no agent may run it.
+
+The exporter lives under `monitoring/`, so `local-coder`'s existing
+`monitoring/**` allowance already reaches both the code and its tests. Phase 2
+needs no new edit permission, and adding a redundant rule for the tests would
+only make the allowlist harder to reason about.
 
 **`py scripts/verify.py` remains the only verification command.** It does not
 become one of two. A check module runs `pytest` as a subprocess and reports the
 result as a single line like any other check, skipping when pytest is not
 installed. This is not cosmetic: the deny-by-default `bash` policy in every
-agent profile allows exactly that one command, and a second entry point would
-mean allowing agents to run `py -m ...`, which is also how packages get
-installed and servers get started.
+agent profile allows exactly that one command and denies `py -m*` outright,
+because that is equally how packages get installed and servers get started.
+Installing `pytest` is a human action taken outside this workflow.
 
 Tests carry the same rules as task check modules: `local-coder` may add them,
 never weaken or delete them, and a test that would pass against a broken

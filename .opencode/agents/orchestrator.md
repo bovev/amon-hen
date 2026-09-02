@@ -49,6 +49,11 @@ permission:
     "python*": deny
     "python3*": deny
     "pip*": deny
+    # The launcher bypasses the rules above: "py -m pip install x" starts with
+    # neither "python" nor "pip". Installing, serving, or running anything is a
+    # human decision made outside this workflow.
+    "py -m*": deny
+    "*-m pip*": deny
     "node*": deny
     "npm*": deny
     "npx*": deny
