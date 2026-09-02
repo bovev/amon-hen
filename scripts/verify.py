@@ -26,7 +26,7 @@ import pkgutil
 import sys
 
 import checks
-from checks.common import RESULTS, fail
+from checks.common import DETAILS, RESULTS, fail
 
 
 def discover():
@@ -70,6 +70,12 @@ def main() -> int:
     width = max(len(name) for _, name, _ in RESULTS)
     for status, name, detail in RESULTS:
         print(f"{status}  {name.ljust(width)}  {detail}")
+
+    # A check with more to say than one line queues it here, so the table stays
+    # scannable and the verdict below remains the last thing printed.
+    for block in DETAILS:
+        print()
+        print(block.rstrip())
 
     failures = [r for r in RESULTS if r[0] == "FAIL"]
     print()

@@ -20,10 +20,12 @@ except ImportError:
 __all__ = [
     "ROOT",
     "RESULTS",
+    "DETAILS",
     "yaml",
     "ok",
     "fail",
     "skip",
+    "detail_block",
     "rel",
     "load_yaml",
     "parse_frontmatter",
@@ -34,6 +36,12 @@ __all__ = [
 ROOT = Path(__file__).resolve().parent.parent.parent
 
 RESULTS: list[tuple[str, str, str]] = []
+
+# Checks report one line each, which keeps the summary table scannable. A few
+# have more to say - a failing assertion needs its diff. That goes here and the
+# runner prints it after the table, so the detail never pushes the table off
+# screen and the verdict stays the last thing you read.
+DETAILS: list[str] = []
 
 
 def ok(name: str, detail: str = "") -> None:
@@ -46,6 +54,11 @@ def fail(name: str, detail: str) -> None:
 
 def skip(name: str, detail: str) -> None:
     RESULTS.append(("SKIP", name, detail))
+
+
+def detail_block(text: str) -> None:
+    """Queue multi-line output to print after the summary table."""
+    DETAILS.append(text)
 
 
 def rel(path: Path) -> str:

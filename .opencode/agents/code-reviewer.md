@@ -124,7 +124,8 @@ the coder can otherwise widen the target it is graded against.
 
 The coder may write `scripts/checks/task_NN_*.py` and nothing else there. Any
 diff touching `scripts/verify.py`, `scripts/checks/common.py`, or an invariant
-module (`hygiene`, `compose`, `prometheus`, `grafana`, `workflow`) is out of
+module (`hygiene`, `compose`, `prometheus`, `grafana`, `workflow`,
+`exporter_tests`) is out of
 the coder's scope and blocking on its own — say so rather than assessing
 whether the change is otherwise reasonable.
 

@@ -114,7 +114,7 @@ It covers every file-level check the tasks require: YAML parsing, JSON parsing, 
 Module naming carries meaning and permission:
 
 * `task_NN_<slug>.py` — acceptance checks for one task. `local-coder` may write these.
-* everything else (`hygiene`, `compose`, `prometheus`, `grafana`, `workflow`, `common`) — architectural invariants that apply to all work. Only a human edits these; they define the rules the coder is graded against, so a coder that could loosen them would be grading itself.
+* everything else (`hygiene`, `compose`, `prometheus`, `grafana`, `workflow`, `exporter_tests`, `common`) — architectural invariants that apply to all work. Only a human edits these; they define the rules the coder is graded against, so a coder that could loosen them would be grading itself.
 
 **A task's checks stay after the task is accepted.** That is when they start earning their keep: `task_07_panels.py` exists so a later task cannot silently break a dashboard query. Deleting a previous task's check module is a blocking review finding, and so is any diff where `local-coder` touched the runner or an invariant module. Within a task module the coder may only **add**; removing, weakening or narrowing an existing check is an automatic `REJECT`. The reviewer reads any diff under `scripts/` first and separately.
 
@@ -142,9 +142,12 @@ needs no new edit permission, and adding a redundant rule for the tests would
 only make the allowlist harder to reason about.
 
 **`py scripts/verify.py` remains the only verification command.** It does not
-become one of two. A check module runs `pytest` as a subprocess and reports the
-result as a single line like any other check, skipping when pytest is not
-installed. This is not cosmetic: the deny-by-default `bash` policy in every
+become one of two. `scripts/checks/exporter_tests.py` runs `pytest` as a
+subprocess and reports the result as a single line like any other check,
+printing the assertion detail below the summary table when it fails. It skips
+when the tests do not exist yet or `pytest` is not installed, and fails when the
+test directory exists but collects nothing — an empty suite exits 0 in pytest's
+own accounting, and a silently green oracle is the failure worth guarding. This is not cosmetic: the deny-by-default `bash` policy in every
 agent profile allows exactly that one command and denies `py -m*` outright,
 because that is equally how packages get installed and servers get started.
 Installing `pytest` is a human action taken outside this workflow.

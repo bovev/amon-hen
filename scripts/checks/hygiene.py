@@ -14,13 +14,31 @@ TEXT_GLOBS = (
     ".opencode/agents/*.md",
 )
 
+# The globs above are broad on purpose, so anything a task adds is covered by
+# default. That means they also sweep up whatever the tooling generates next to
+# the source - a .pyc read as text is all CRLF and would fail every run.
+GENERATED_DIRS = {"__pycache__", ".pytest_cache", ".git", "node_modules"}
+BINARY_SUFFIXES = {
+    ".pyc", ".pyo", ".so", ".dll", ".png", ".jpg", ".jpeg",
+    ".gif", ".ico", ".pdf", ".zip", ".gz", ".db", ".woff", ".woff2",
+}
+
+
+def is_source(path) -> bool:
+    """A committed text file a human wrote, as opposed to build output."""
+    if not path.is_file():
+        return False
+    if GENERATED_DIRS.intersection(path.parts):
+        return False
+    return path.suffix.lower() not in BINARY_SUFFIXES
+
 
 def check_line_endings() -> None:
     """AGENTS.md: use LF line endings."""
     offenders = []
     for pattern in TEXT_GLOBS:
         for path in sorted(ROOT.glob(pattern)):
-            if not path.is_file():
+            if not is_source(path):
                 continue
             if b"\r\n" in path.read_bytes():
                 offenders.append(rel(path))
@@ -31,7 +49,11 @@ def check_line_endings() -> None:
 
 
 def check_yaml_parses() -> None:
-    files = [p for p in sorted(ROOT.glob("monitoring/**/*")) if p.suffix in (".yml", ".yaml")]
+    files = [
+        p
+        for p in sorted(ROOT.glob("monitoring/**/*"))
+        if p.suffix in (".yml", ".yaml") and is_source(p)
+    ]
     if not files:
         skip("yaml parses", "no YAML under monitoring/ yet")
         return
