@@ -1,3 +1,9 @@
+---
+task: 0
+status: done
+accepted_at: 1569cbe
+---
+
 # Task 0 — Verify prerequisites
 
 **Depends on:** nothing

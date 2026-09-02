@@ -1,3 +1,9 @@
+---
+task: 2
+status: done
+accepted_at: 837d789
+---
+
 # Task 2 — Write `prometheus/prometheus.yml`
 
 **Depends on:** Task 0 (scrape target), Task 1 (tree)

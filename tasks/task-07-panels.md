@@ -1,3 +1,9 @@
+---
+task: 7
+status: done
+accepted_at: 72952c6
+---
+
 # Task 7 — Build out the panels → **CHECKPOINT C**
 
 **Depends on:** Task 6 (Checkpoint B), Task 0 (metric names)

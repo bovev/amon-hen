@@ -1,3 +1,9 @@
+---
+task: 8
+status: done
+accepted_at: 9304793
+---
+
 # Task 8 — Persistence check
 
 **Depends on:** Task 7

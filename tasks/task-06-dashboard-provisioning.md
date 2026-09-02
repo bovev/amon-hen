@@ -1,3 +1,9 @@
+---
+task: 6
+status: done
+accepted_at: d774915
+---
+
 # Task 6 — Provision the dashboard loader → **CHECKPOINT B**
 
 **Depends on:** Task 5

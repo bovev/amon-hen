@@ -10,12 +10,15 @@ permission:
 
   edit:
     # Rules are evaluated last-match-wins, so "*" must stay first.
-    "*": allow
-    "tasks/**": deny
-    ".opencode/**": deny
-    "AGENTS.md": deny
-    "CLAUDE.md": deny
-    "scripts/**": deny
+    #
+    # Deny by default and name what this role may write. Phase 1 produces
+    # nothing outside monitoring/. Task acceptance checks are writable because
+    # AGENTS.md requires new checks to be added there rather than run ad hoc;
+    # the invariant modules beside them define the rules this role is graded
+    # against and stay out of reach.
+    "*": deny
+    "monitoring/**": allow
+    "scripts/checks/task_*.py": allow
     "**/.env": deny
 
   bash:
@@ -26,6 +29,7 @@ permission:
     "git diff*": allow
     "git log*": allow
     "git show*": allow
+    "git rev-parse*": allow
     "git ls-files*": allow
     "git grep*": allow
     "grep*": allow
@@ -65,6 +69,7 @@ permission:
     "git checkout*": deny
     "git restore*": deny
     "git clean*": deny
+    "git rebase*": deny
     "git stash*": deny
 
   task:
@@ -97,6 +102,20 @@ pending` and finish.
 3. Read relevant AGENTS.md instructions.
 4. Identify the smallest correct change satisfying the task.
 
+## Authoritative facts
+
+Metric names, the scrape target, the network name, ports and container names
+come from `tasks/00-findings.md` and nowhere else. It records what the deployed
+server actually exposes.
+
+Names appearing in task files, `implementation-guide.md`, `intial_plan.md` and
+`README.md` are illustrative documentation examples. They are frequently wrong.
+Where a task file and `00-findings.md` disagree, `00-findings.md` wins.
+
+If a fact you need is not in `00-findings.md`, do not guess it and do not take
+it from an example. Report it as a blocker in `Known concerns` and finish the
+rest of the task.
+
 ## Implementation
 
 Implement the task directly in the working tree.
@@ -120,18 +139,63 @@ After implementation:
 1. Inspect the changes with `git diff`.
 
 2. Run `py scripts/verify.py`. It is the only verification command in this
-   repository and it covers YAML parsing, JSON parsing, line endings,
-   frontmatter, and the task-specified configuration invariants.
+   repository. It runs every check module under `scripts/checks/` and covers
+   YAML parsing, JSON parsing, line endings, task state, agent frontmatter and
+   policy, and the task-specified configuration invariants.
 
 3. Do not invent, search for, or improvise any other test, lint, format,
    schema, frontmatter, type-check, or build command. There are none.
 
 4. If `py scripts/verify.py` reports failures:
    - fix the failures caused by your changes;
-   - do not modify unrelated code, configuration, or the verify script itself
-     to make it pass.
+   - do not modify unrelated code or configuration to make it pass.
 
 5. Anything the script cannot check on this machine is reported, not attempted.
+
+### Adding checks
+
+Checks live in `scripts/checks/`, one module per concern. You may write
+`scripts/checks/task_NN_<slug>.py` — the acceptance checks for your assigned
+task — and nothing else in that directory. The other modules hold the
+architectural invariants you are graded against; you cannot edit them, and
+should not try.
+
+A task check module looks like this:
+
+```python
+"""Task N acceptance (tasks/task-NN-<slug>.md): <what it proves>."""
+
+from .common import fail, ok, skip, ROOT
+
+ORDER = <NN * 10>
+
+
+def check_task<N>_<thing>() -> None:
+    path = ROOT / "monitoring" / "..."
+    if not path.exists():
+        skip("taskN <thing>", "not created yet")
+        return
+    problems = []
+    ...
+    if problems:
+        fail("taskN <thing>", "; ".join(problems))
+    else:
+        ok("taskN <thing>", "<what passed>")
+```
+
+`py scripts/verify.py` discovers the file automatically. Do not edit the runner
+or register the check anywhere.
+
+Rules:
+
+* **Add** checks; never remove, weaken, narrow, or disable an existing one, and
+  never relax one so your implementation passes. That is the failure the
+  reviewer looks for first, and it is an automatic `REJECT`.
+* A check written for a task stays after the task is accepted. It is a
+  regression check against later work, not scaffolding to clean up.
+* Missing files must `skip`, not `fail`, so earlier tasks still pass.
+* Confirm the check actually fails on the input it is meant to catch before
+  reporting `PASS`, and say so in the completion report.
 
 ## Completion report
 
@@ -145,6 +209,10 @@ Files changed:
 Changes:
 - ...
 
+Acceptance criteria:
+- "<criterion, quoted from the task file>" -> satisfied by <file:line>
+- "<criterion>" -> NOT satisfied: <why>
+
 Verification:
 - Command: `py scripts/verify.py`
   Result: PASS / FAIL
@@ -154,6 +222,18 @@ Deployment verification pending:
 
 Known concerns:
 - ...
+
+### The acceptance criteria section
+
+List **every** acceptance criterion in the task file, quoted, each pointing at
+the specific file and line that satisfies it. Not a summary of the file — the
+place a reviewer looks to confirm it.
+
+If a criterion is unmet, say so plainly rather than omitting it or restating the
+task text as if it were evidence. An unmet criterion reported honestly is a
+normal outcome; an unlisted one is a defect.
+
+If you added a check to `scripts/verify.py`, state what input it rejects.
 
 Do not claim that the task is accepted.
 Only the code-reviewer can approve the implementation.

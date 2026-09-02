@@ -1,3 +1,9 @@
+---
+task: 9
+status: done
+accepted_at: 2cc98cc
+---
+
 # Task 9 — README and measurements
 
 **Depends on:** Tasks 7–8

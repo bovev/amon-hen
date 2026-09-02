@@ -1,3 +1,9 @@
+---
+task: 1
+status: done
+accepted_at: 837d789
+---
+
 # Task 1 — Scaffold the directory tree
 
 **Depends on:** Task 0 (for `LLM_NETWORK`)

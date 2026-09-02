@@ -1,3 +1,9 @@
+---
+task: 4
+status: done
+accepted_at: 68deeb3
+---
+
 # Task 4 — First boot → **CHECKPOINT A**
 
 **Depends on:** Tasks 1–3

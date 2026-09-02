@@ -1,3 +1,9 @@
+---
+task: 5
+status: done
+accepted_at: 728dbfc
+---
+
 # Task 5 — Provision the Prometheus datasource
 
 **Depends on:** Task 4 (Checkpoint A)

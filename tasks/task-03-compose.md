@@ -1,3 +1,9 @@
+---
+task: 3
+status: done
+accepted_at: 837d789
+---
+
 # Task 3 — Write `compose.yaml`
 
 **Depends on:** Task 0 (network name), Task 1 (`.env`), Task 2 (config file to mount)
