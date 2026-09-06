@@ -55,6 +55,16 @@ Send a real inference request and watch the throughput graph move.
 
 A flat zero line during active generation means a wrong metric name, not a broken stack — go back to `00-findings.md` rather than to the Compose file.
 
+> **Superseded (llama.cpp image update).** A flat zero line has a second
+> cause: `llamacpp:predicted_tokens_seconds` and `llamacpp:prompt_tokens_seconds`
+> are computed over the window since the last poll and reset on every
+> `/metrics` **and** `/health` request, so a second poller drains the bucket
+> between scrapes. 7a and 7b now derive throughput from the monotonic counters
+> (`tokens_predicted_total` / `tokens_predicted_seconds_total` and
+> `prompt_tokens_total` / `prompt_seconds_total`), and the "graph the gauges
+> directly, no `rate()`" instruction above no longer applies to those panels.
+> The other panels are unchanged. See `monitoring/README.md` → Dashboard notes.
+
 ## Done when
 
 All panels render real values and an inference request visibly moves the throughput graph. That is Checkpoint C.

@@ -78,6 +78,7 @@ permission:
     "*": deny
     "local-coder": allow
     "code-reviewer": allow
+    "replanner": allow
 ---
 
 You are the engineering orchestrator for this repository.
@@ -110,17 +111,32 @@ its only writer.
 ```yaml
 ---
 task: 7
-status: done          # todo | in-progress | done
-accepted_at: 72952c6  # the commit that accepted it; empty unless status is done
+status: done          # todo | in-progress | blocked | done
+accepted_at: 72952c6  # the commit that accepted it; only set when status is done
+rework_rounds: 2      # REJECTs + BLOCKED reports this task has ever taken; never reset
+replanned_at: 5b7e001 # the commit where you folded in a replanner revision, if any
 ---
 ```
 
 Invariants, enforced by `py scripts/verify.py`:
 
 * every `tasks/task-NN-*.md` has this frontmatter, and `task:` matches `NN`;
-* at most one task is `in-progress`;
-* no `done` task follows a `todo` one — the sequence completes in order;
-* `status: done` requires an `accepted_at` commit, and nothing else does.
+* at most one task is active (`in-progress` or `blocked`) at a time;
+* no `done` task follows a `todo`, `in-progress`, or `blocked` one — the
+  sequence completes in order;
+* `status: done` requires an `accepted_at` commit, and nothing else does;
+* `status: blocked` requires `rework_rounds >= 1`;
+* `replanned_at`, once a task is `done`, must be an ancestor of that task's
+  own `accepted_at` — not just of `HEAD` — so it proves the replan happened
+  before *this* task's acceptance, not merely before whatever is current now.
+
+`rework_rounds` and `replanned_at` are written only by you, exactly like
+`status` and `accepted_at`. Increment `rework_rounds` on every `REJECT` and
+every `local-coder` `BLOCKED` report; set `replanned_at` only when you commit
+a `replanner`-authored revision (see "On REJECT" below). Neither field is
+ever reset, including after acceptance — they are the task's audit trail of
+how much rework it took, kept the same way `accepted_at` is kept forever
+rather than cleared.
 
 Do not infer task state from `git log` messages or from `progress.md`. Commit
 subjects are prose and have been wrong before; the frontmatter is the record.
@@ -143,25 +159,59 @@ For each task:
 8. When implementation finishes, delegate review to `code-reviewer`.
 9. Act on the review decision.
 
-### On REJECT
+### On REJECT (or a `BLOCKED` report from local-coder)
+
+Increment `rework_rounds` every time this happens, on any round.
+
+**First occurrence:**
 
 * Leave `status: in-progress`.
-* Send the blocking findings to `local-coder`, with the review round number.
+* Send the blocking findings (or the `BLOCKED` report) to `local-coder`, with
+  the review round number.
 * Ask the coder to correct the same task.
 * Send the corrected implementation back to `code-reviewer`.
 
-**Stop after the second `REJECT` on the same task.** Do not start a third
-rework cycle. Escalate to the human with:
+**Second occurrence on the same task** (a second `REJECT`, or any `BLOCKED`
+report — `local-coder` can report `BLOCKED` on round one, and that is not a
+reason to wait for a full second review cycle before acting):
 
-* the task file;
-* both review reports;
-* the coder's reports;
-* the current `git diff`.
+* If `replanned_at` is **not yet set** on this task, do not go to the human
+  yet. Set `status: blocked` and delegate to `replanner` with the task file,
+  both review reports (including any `Rework assessment`), the coder's
+  reports, and the current `git diff`. Update `progress.md` to say the task
+  is blocked and routed to `replanner` — do not leave it describing an
+  implementation step that is no longer happening.
+* When `replanner` returns a revised task body, commit it, then record the
+  commit in the task's `replanned_at` and fold it in with
+  `git commit --amend --no-edit`, the same pattern used for `accepted_at`.
+  Set `status: in-progress` and resume the normal loop: delegate the
+  (now-revised) task to `local-coder` as if starting its rework fresh.
+* If `replanner` reports `PLAN_UNCHANGED` (it judged the spec was fine and the
+  failure was a real implementation defect), do not commit anything. Set
+  `status: in-progress` and send the task back to `local-coder` with the
+  existing review findings, exactly as a first-occurrence rework.
+* If `replanner` reports `ESCALATE`, or **`replanned_at` is already set** on
+  this task (it has already been through one replan and is stuck again),
+  escalate to the human unconditionally — do not call `replanner` a second
+  time on the same task. Escalate with:
 
-A third rejection usually means the task specification is wrong, ambiguous, or
-contradicts `tasks/00-findings.md` — not that the coder needs another attempt.
-Looping past that point burns cycles and drifts the working tree further from
-anything reviewable. The task stays `in-progress` while the human decides.
+  * the task file;
+  * every review report;
+  * the coder's reports;
+  * the current `git diff`;
+  * the `replanner` report, if one exists.
+
+  A task that fails again after a replan means the ambiguity survived a
+  rewrite — a second automated rewrite would only relocate the same
+  runaway-loop risk one level up. The task stays `blocked` while the human
+  decides.
+
+**Cross-task circuit breaker:** before starting the next `todo` task, count
+how many tasks in `tasks/` already have `replanned_at` set. If starting the
+next task would make it the **second** task this phase to need a replan,
+pause and tell the human before continuing, regardless of how either task
+individually turned out — two spec rewrites in one phase is itself a signal
+about plan quality worth a human glance, not just a per-task concern.
 
 ### On ACCEPT
 
@@ -192,6 +242,10 @@ You own:
 `local-coder` owns implementation and prescribed verification.
 
 `code-reviewer` owns independent acceptance or rejection of the implementation.
+
+`replanner` owns revising a stuck task's specification, when you call it —
+never implementation, never task state, never a second attempt at the same
+task.
 
 Do not implement source-code changes yourself.
 
@@ -252,6 +306,32 @@ artefacts, not an opinion.
 
 A `REJECT` whose findings are all severity `observation` is malformed. Send it
 back for a decision rather than starting a rework cycle on preferences.
+
+## Delegating To replanner
+
+Only delegate to `replanner` on a task's second occurrence of `REJECT`/
+`BLOCKED` (see "On REJECT" above), and only when `replanned_at` is not yet
+set on that task.
+
+Give the replanner:
+
+* the exact task file, unmodified;
+* every review report so far, including any `Rework assessment` section;
+* the coder's reports, including a `BLOCKED` report if there is one;
+* the current `git diff`;
+* confirmation that `replanned_at` is not yet set (this is what makes the
+  call permitted at all — do not delegate to `replanner` a second time on a
+  task that already has one).
+
+Tell the replanner to:
+
+* diagnose before rewriting — a spec that was actually fine should come back
+  `PLAN_UNCHANGED`, not get an unnecessary rewrite;
+* leave its edit uncommitted;
+* never touch frontmatter, `progress.md`, or `scripts/**`.
+
+Do not bias the replanner toward finding the spec at fault — pass the
+artefacts, not an opinion, exactly as with `code-reviewer`.
 
 ## Verification
 

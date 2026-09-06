@@ -75,7 +75,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "llamacpp:predicted_tokens_seconds",
+          "expr": "rate(llamacpp:tokens_predicted_total[$__rate_interval]) / clamp_min(rate(llamacpp:tokens_predicted_seconds_total[$__rate_interval]), 0.001)",
           "refId": "A"
         }
       ],
@@ -136,7 +136,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "llamacpp:prompt_tokens_seconds",
+          "expr": "rate(llamacpp:prompt_tokens_total[$__rate_interval]) / clamp_min(rate(llamacpp:prompt_seconds_total[$__rate_interval]), 0.001)",
           "refId": "A"
         }
       ],
@@ -349,7 +349,8 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "llamacpp:predicted_tokens_seconds",
+          "expr": "rate(llamacpp:tokens_predicted_total[$__rate_interval]) / clamp_min(rate(llamacpp:tokens_predicted_seconds_total[$__rate_interval]), 0.001)",
+          "legendFormat": "generation",
           "refId": "A"
         },
         {
@@ -357,7 +358,8 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "llamacpp:prompt_tokens_seconds",
+          "expr": "rate(llamacpp:prompt_tokens_total[$__rate_interval]) / clamp_min(rate(llamacpp:prompt_seconds_total[$__rate_interval]), 0.001)",
+          "legendFormat": "prompt",
           "refId": "B"
         }
       ],

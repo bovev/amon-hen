@@ -219,7 +219,31 @@ that would also pass against a broken implementation is worse than no test.
 
 ## Completion report
 
-Return:
+If the task cannot be implemented at all as specified — a fact you need is
+missing from `00-findings.md` with no reasonable file-only default, or the
+acceptance criteria directly contradict `AGENTS.md` or `00-findings.md` —
+report `BLOCKED` instead of `IMPLEMENTATION_COMPLETE`. This is a different
+thing from `Known concerns`: use `Known concerns` when most criteria are
+still satisfiable and verification can still run; use `BLOCKED` only when it
+cannot. A `BLOCKED` report lets the orchestrator route the task to
+`replanner` immediately, without waiting for a full review cycle.
+
+BLOCKED
+
+Reason:
+- ...
+
+What was attempted:
+- ...
+
+What is missing, ambiguous, or contradictory (cite the task file or
+00-findings.md):
+- ...
+
+Files changed so far, if any:
+- ...
+
+Otherwise, return:
 
 IMPLEMENTATION_COMPLETE
 

@@ -245,7 +245,9 @@ section stating which is more likely:
 * the implementation is wrong and the required correction is clear; or
 * the task specification is ambiguous, contradicts `00-findings.md`, or asks for
   something the repository cannot express — in which case say so explicitly, so
-  the orchestrator escalates to the human instead of running another cycle.
+  the orchestrator routes the task to `replanner` instead of running another
+  coder cycle (or escalates straight to a human if this task has already been
+  through one replan — the orchestrator tracks that, not you).
 
 Do not repeat a finding the coder has already addressed, and do not introduce
 new observations as blocking findings in a later round unless the coder's own

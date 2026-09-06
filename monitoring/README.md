@@ -52,10 +52,33 @@ Tested and deployed with:
 - **Speculative-decoding panels** are present because the deployed
   server exposes the `llamacpp:spec_decode_*` counters:
   `Speculative Acceptance %`, `Speculative Draft Tokens`,
-  `Speculative Accepted Draft Tokens`.
-  NOTE: If these panels show no data, it is likely because the `llama-server`
-  upstream (llama.cpp) has not yet merged the PR providing these metrics.
-  The panels are provisioned in anticipation of this upstream change.
+  `Speculative Accepted Draft Tokens`. Upstream now documents
+  `spec_decode_num_draft_tokens_total`,
+  `spec_decode_num_accepted_tokens_total`, `spec_decode_num_drafts_total`
+  and `spec_decode_num_accepted_tokens_per_pos_total`; all four read 0
+  while speculative decoding is off, and the per-position counter is
+  absent until the first speculative request completes.
+- **Throughput is derived from counters, not from the tok/s gauges.**
+  `llamacpp:predicted_tokens_seconds` and `llamacpp:prompt_tokens_seconds`
+  look like the obvious choice, but upstream computes them over the window
+  since the *last poll* and resets that bucket on every `/metrics` **and**
+  `/health` request — the two share one task type. Any second poller (a
+  container `HEALTHCHECK`, a load balancer, a curl in a terminal) therefore
+  drains the bucket between Prometheus scrapes and the panels read 0 during
+  active generation. `Generation tok/s`, `Prompt tok/s` and `Throughput`
+  instead divide the token counter's rate by the matching seconds counter's
+  rate:
+
+  ```promql
+  rate(llamacpp:tokens_predicted_total[$__rate_interval])
+    / clamp_min(rate(llamacpp:tokens_predicted_seconds_total[$__rate_interval]), 0.001)
+  ```
+
+  The counters are monotonic, so no other poller can disturb them. This
+  reads tokens per second *of processing time* — the same quantity the
+  gauge claimed to report — and `clamp_min` keeps an idle server (`0 / 0`)
+  at 0 instead of `NaN`. `scripts/checks/task_07_panels.py` fails the build
+  if either gauge comes back into the dashboard.
 
 ## Measurements
 

@@ -18,9 +18,15 @@ ORDER = 70
 # and only the orchestrator writes it.
 # --------------------------------------------------------------------------
 
-TASK_STATUSES = ("todo", "in-progress", "done")
-TASK_KEYS = {"task", "status", "accepted_at"}
+TASK_STATUSES = ("todo", "in-progress", "blocked", "done")
+TASK_KEYS = {"task", "status", "accepted_at", "rework_rounds", "replanned_at"}
 SHA_RE = re.compile(r"^[0-9a-f]{7,40}$")
+
+# rework_rounds/replanned_at/blocked record the rework a task went through;
+# they never gate whether to call replanner or escalate to a human — that is
+# the orchestrator's judgment call (AGENTS.md's rework limit), not a fact
+# about file content. This module only checks the fields are used
+# consistently with each other.
 
 
 def check_task_state() -> None:
@@ -68,37 +74,81 @@ def check_task_state() -> None:
         elif accepted:
             problems.append(f"{name}: only a 'done' task may set accepted_at (status {status!r})")
 
-        entries.append((number, name, status, accepted))
+        rework_rounds = meta.get("rework_rounds")
+        if rework_rounds is not None and (
+            isinstance(rework_rounds, bool)
+            or not isinstance(rework_rounds, int)
+            or rework_rounds < 0
+        ):
+            problems.append(
+                f"{name}: rework_rounds must be a non-negative integer, got {rework_rounds!r}"
+            )
+            rework_rounds = None
+
+        replanned = meta.get("replanned_at")
+        if replanned and not SHA_RE.match(str(replanned)):
+            problems.append(f"{name}: replanned_at {replanned!r} is not a commit sha")
+
+        if status == "todo" and (rework_rounds or replanned):
+            problems.append(f"{name}: status 'todo' must not set rework_rounds or replanned_at")
+
+        if status == "blocked" and not rework_rounds:
+            problems.append(f"{name}: status 'blocked' requires rework_rounds >= 1")
+
+        if replanned and not rework_rounds:
+            problems.append(f"{name}: replanned_at requires rework_rounds >= 1")
+
+        entries.append((number, name, status, accepted, rework_rounds, replanned))
 
     entries.sort()
 
-    in_progress = [name for _, name, status, _ in entries if status == "in-progress"]
-    if len(in_progress) > 1:
-        problems.append("more than one task in-progress: " + ", ".join(in_progress))
+    # blocked is a stuck variant of in-progress, not a parallel track - it
+    # still occupies the one active-task slot AGENTS.md requires.
+    active = [name for _, name, status, *_ in entries if status in ("in-progress", "blocked")]
+    if len(active) > 1:
+        problems.append("more than one task active (in-progress/blocked): " + ", ".join(active))
 
     open_task = None
-    for _, name, status, _ in entries:
-        if status in ("todo", "in-progress") and open_task is None:
+    for _, name, status, *_ in entries:
+        if status in ("todo", "in-progress", "blocked") and open_task is None:
             open_task = name
         elif status == "done" and open_task is not None:
             problems.append(f"{name}: marked done but {open_task} before it is not")
 
     # Only meaningful inside a checkout; skipped silently elsewhere.
     if git("rev-parse", "--git-dir") == 0:
-        for _, name, status, accepted in entries:
-            if status != "done" or not accepted or not SHA_RE.match(str(accepted)):
-                continue
-            if git("cat-file", "-e", f"{accepted}^{{commit}}") != 0:
-                problems.append(f"{name}: accepted_at {accepted} is not a commit in this repository")
-            elif git("merge-base", "--is-ancestor", str(accepted), "HEAD") != 0:
-                problems.append(f"{name}: accepted_at {accepted} is not an ancestor of HEAD")
+        for _, name, status, accepted, rework_rounds, replanned in entries:
+            if status == "done" and accepted and SHA_RE.match(str(accepted)):
+                if git("cat-file", "-e", f"{accepted}^{{commit}}") != 0:
+                    problems.append(f"{name}: accepted_at {accepted} is not a commit in this repository")
+                elif git("merge-base", "--is-ancestor", str(accepted), "HEAD") != 0:
+                    problems.append(f"{name}: accepted_at {accepted} is not an ancestor of HEAD")
+
+            if replanned and SHA_RE.match(str(replanned)):
+                if git("cat-file", "-e", f"{replanned}^{{commit}}") != 0:
+                    problems.append(f"{name}: replanned_at {replanned} is not a commit in this repository")
+                elif git("merge-base", "--is-ancestor", str(replanned), "HEAD") != 0:
+                    problems.append(f"{name}: replanned_at {replanned} is not an ancestor of HEAD")
+                elif (
+                    status == "done"
+                    and accepted
+                    and SHA_RE.match(str(accepted))
+                    and git("merge-base", "--is-ancestor", str(replanned), str(accepted)) != 0
+                ):
+                    # HEAD keeps moving as later tasks land, so "ancestor of
+                    # HEAD" alone would not prove the replan happened before
+                    # *this* task's own acceptance. Pin it to accepted_at too.
+                    problems.append(
+                        f"{name}: replanned_at {replanned} must be an ancestor of accepted_at {accepted}"
+                    )
 
     if problems:
         fail("task state", "; ".join(problems))
     else:
-        done = sum(1 for _, _, status, _ in entries if status == "done")
-        current = in_progress[0] if in_progress else "none"
-        ok("task state", f"{done}/{len(entries)} done, in-progress: {current}")
+        done = sum(1 for _, _, status, *_ in entries if status == "done")
+        in_prog = next((name for _, name, status, *_ in entries if status == "in-progress"), "none")
+        blocked = next((name for _, name, status, *_ in entries if status == "blocked"), "none")
+        ok("task state", f"{done}/{len(entries)} done, in-progress: {in_prog}, blocked: {blocked}")
 
 
 # --------------------------------------------------------------------------
@@ -236,15 +286,26 @@ SHARED_BASH_DENY = (
 
 # agent file -> (mode, git add/commit, delegates it may spawn)
 AGENT_ROLES = {
-    "orchestrator.md": ("primary", "allow", ("local-coder", "code-reviewer")),
+    "orchestrator.md": ("primary", "allow", ("code-reviewer", "local-coder", "replanner")),
     "local-coder.md": ("subagent", "deny", ()),
     "code-reviewer.md": ("subagent", "deny", ()),
+    "planner.md": ("primary", "deny", ()),
+    "replanner.md": ("subagent", "deny", ()),
 }
 
-# The coder is the only role that writes, so its allowlist is pinned exactly.
-# It may add task acceptance checks; the invariant modules under scripts/checks/
-# define the rules it is graded against and stay out of reach.
+# The coder is the only role that writes source/config, so its allowlist is
+# pinned exactly. It may add task acceptance checks; the invariant modules
+# under scripts/checks/ define the rules it is graded against and stay out
+# of reach.
 CODER_EDIT_ALLOW = ("monitoring/**", "scripts/checks/task_*.py")
+
+# planner and replanner may revise task *bodies* only. tasks/**-findings.md
+# is deliberately excluded: those files are the record of what the deployed
+# server actually exposes, and a stuck replan "succeeding" by editing ground
+# truth to match a wrong assumption is the same self-grading failure the
+# coder's edit allowlist above already guards against.
+PLANNING_EDIT_ALLOW = ("tasks/**",)
+PLANNING_EDIT_DENY_AFTER = "tasks/*-findings.md"
 
 
 def check_agent_policy() -> None:
@@ -315,6 +376,16 @@ def check_agent_policy() -> None:
                 )
             if edit.get("**/.env") != "deny":
                 problems.append(f"{filename}: edit must deny '**/.env' after the allowlist")
+        elif filename in ("planner.md", "replanner.md"):
+            allowed = tuple(k for k, v in edit.items() if v == "allow")
+            if allowed != PLANNING_EDIT_ALLOW:
+                problems.append(
+                    f"{filename}: edit allowlist must be {PLANNING_EDIT_ALLOW}, got {allowed}"
+                )
+            if edit.get(PLANNING_EDIT_DENY_AFTER) != "deny":
+                problems.append(
+                    f"{filename}: edit must deny {PLANNING_EDIT_DENY_AFTER!r} after the allowlist"
+                )
 
     if problems:
         fail("agent policy", "; ".join(problems))

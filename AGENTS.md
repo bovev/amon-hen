@@ -16,26 +16,36 @@ Deployment and runtime verification happen on the Ubuntu server, performed by a 
 
 ## Agent Workflow
 
-Use three roles for implementation:
+Use five roles:
 
+* **planner** — plans a phase's work with the human, before the autonomous
+  loop starts on it; authors and revises task specifications.
 * **orchestrator** — owns task sequencing, task state, and delegation.
 * **local-coder** — implements and verifies exactly one assigned task.
 * **code-reviewer** — independently reviews the implementation against the task specification.
+* **replanner** — revises a stuck task's specification autonomously, when the
+  orchestrator calls it; no human involved.
+
+Before a phase begins, a human works with `planner` to author or revise that
+phase's `tasks/task-NN-*.md` files. Only once the human has confirmed them
+does the autonomous loop below start.
 
 Process one task at a time:
 
 1. Orchestrator selects the next incomplete task and delegates it to `local-coder`.
-2. Local-coder implements only that task, runs relevant verification, and reports the changes — including a mapping from every acceptance criterion to the file and line satisfying it.
+2. Local-coder implements only that task, runs relevant verification, and reports the changes — including a mapping from every acceptance criterion to the file and line satisfying it. If the task cannot be implemented at all as specified, it reports `BLOCKED` instead.
 3. Orchestrator delegates the result to `code-reviewer`.
 4. Reviewer forms findings from the task file and the diff **before** reading the coder's summary, then returns `ACCEPT` or `REJECT`.
 5. On `REJECT`, orchestrator sends the findings back to `local-coder` for correction and repeats review.
-6. Only after `ACCEPT` may the orchestrator mark the task complete and continue.
+6. On a second `REJECT`, or any `BLOCKED` report, the orchestrator routes the task to `replanner` (unless it has already been through one replan, in which case it escalates to a human) instead of endlessly repeating step 5. See "Rework limit."
+7. Only after `ACCEPT` may the orchestrator mark the task complete and continue.
 
 Rules:
 
 * Orchestrator does not implement source changes.
 * Local-coder does not change task status or start another task.
 * Code-reviewer does not implement fixes.
+* Replanner does not implement fixes, touch task state, or get a second attempt at the same task.
 * Reviewer findings must be resolved before acceptance.
 * Do not work ahead on later tasks.
 
@@ -46,12 +56,14 @@ Status lives in the frontmatter of each `tasks/task-NN-*.md`, written only by th
 ```yaml
 ---
 task: 7
-status: done          # todo | in-progress | done
+status: done          # todo | in-progress | blocked | done
 accepted_at: 72952c6  # the commit that accepted it
+rework_rounds: 2      # REJECTs + BLOCKED reports this task has ever taken; never reset
+replanned_at: 5b7e001 # the commit that folded in a replanner revision, if any
 ---
 ```
 
-This is the record of what is done. Do not infer it from commit subjects — they are prose and have been wrong. `progress.md` describes the current task only and is overwritten each time; it is not a state store. `py scripts/verify.py` enforces the frontmatter, the single in-progress task, in-order completion, and that every `accepted_at` is a real ancestor of `HEAD`.
+This is the record of what is done. Do not infer it from commit subjects — they are prose and have been wrong. `progress.md` describes the current task only and is overwritten each time; it is not a state store. `py scripts/verify.py` enforces the frontmatter, the single active task (`in-progress` or `blocked`), in-order completion, that every `accepted_at` is a real ancestor of `HEAD`, and that a `done` task's `replanned_at` (if set) is an ancestor of that task's own `accepted_at` — proof the replan happened before this task's own acceptance, not just before whatever is current now.
 
 ### Findings are authoritative
 
@@ -63,7 +75,26 @@ Findings are `blocking-correctness` (violates an acceptance criterion, an AGENTS
 
 ### Rework limit
 
-Stop after the second `REJECT` on the same task and escalate to the human with the task file, both reviews, and the current diff. A third rejection usually means the task specification is wrong rather than the implementation.
+On a second `REJECT` (or any `BLOCKED` report from `local-coder`, even on
+round one), the orchestrator does not go straight to a human. If the task has
+not already been through one replan, it routes the task to `replanner`
+instead — the reviewer's own `Rework assessment` already exists to say
+whether the spec, not the implementation, is the problem, and this is what
+acts on that diagnosis. `replanner` revises the task body (or reports back
+that the spec was fine, in which case the coder gets a normal rework cycle
+instead), and the orchestrator resumes the loop against the revised spec.
+
+Only when a task fails again **after** a replan (`replanned_at` already set)
+does the orchestrator escalate to the human, with the task file, every
+review, the coder's reports, and the current diff. A second automated
+rewrite would only relocate the same runaway-loop risk one level up, not
+resolve it. The task stays `blocked` while the human decides.
+
+Separately, before starting the next task, the orchestrator counts tasks in
+the phase that have needed a replan. Reaching a second one pauses for the
+human regardless of either task's individual outcome — two spec rewrites in
+one phase says something about the phase's plan, not just about those two
+tasks.
 
 ## Architecture Constraints
 
