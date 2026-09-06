@@ -79,6 +79,28 @@ Tested and deployed with:
   gauge claimed to report — and `clamp_min` keeps an idle server (`0 / 0`)
   at 0 instead of `NaN`. `scripts/checks/task_07_panels.py` fails the build
   if either gauge comes back into the dashboard.
+- **The `Throughput` graph gates both series on `> 0`; the stat panels do
+  not.** That `clamp_min` 0 is what the `Generation tok/s` and `Prompt tok/s`
+  stat panels want: they reduce with `lastNotNull`, so an idle server reads
+  0 rather than a stale figure from ten minutes ago. The `Throughput` graph
+  wants the opposite. Its legend is a table with a **Mean** column, and an
+  idle server emits one real 0 every 5s scrape — over the default 30-minute
+  range those zeros swamp the average and the mean decays toward 0 no matter
+  how fast generation actually ran. Both of its targets therefore end in
+  `> 0`:
+
+  ```promql
+  rate(llamacpp:tokens_predicted_total[$__rate_interval])
+    / clamp_min(rate(llamacpp:tokens_predicted_seconds_total[$__rate_interval]), 0.001)
+    > 0
+  ```
+
+  A bare PromQL comparison (no `bool`) *filters* rather than returning 0/1,
+  so idle scrapes produce no sample at all and Grafana's mean — which divides
+  by the non-null count — covers active generation only. The visible
+  consequence is intended: the line breaks instead of flatlining at 0 while
+  idle, and if the server was idle for the whole selected range the panel
+  reads **No data**.
 
 ## Measurements
 

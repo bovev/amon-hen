@@ -65,6 +65,18 @@ A flat zero line during active generation means a wrong metric name, not a broke
 > directly, no `rate()`" instruction above no longer applies to those panels.
 > The other panels are unchanged. See `monitoring/README.md` → Dashboard notes.
 
+> **Erratum (idle zeros in the Throughput legend).** `clamp_min` in those
+> derived expressions makes an idle server emit a real `0` on every 5s scrape.
+> 7a's stat panels want that — they reduce with `lastNotNull` and should read 0
+> while nothing is running. 7b's graph does not: its legend carries a **Mean**
+> calc, and 30 minutes of idle zeros drag that mean toward 0 regardless of how
+> fast generation actually ran. Both `Throughput` targets therefore end in
+> `> 0`, a bare PromQL comparison that *filters* the idle samples out, so the
+> legend mean covers active generation only and the line breaks instead of
+> flatlining. The gate belongs on the graph alone — adding it to the stat panels
+> would pin them to a stale value. `scripts/checks/task_07_panels.py` enforces
+> the split.
+
 ## Done when
 
 All panels render real values and an inference request visibly moves the throughput graph. That is Checkpoint C.

@@ -11,6 +11,15 @@ poller (a container HEALTHCHECK, a load balancer) drains the bucket and
 Prometheus reads 0 during active inference. The counters are monotonic and
 immune to that, so the throughput panels now use them and the two gauges are
 banned from the dashboard.
+
+Idle-zero note: clamp_min makes an idle server read 0 rather than NaN, which is
+what the stat panels want - they reduce with lastNotNull and should show 0 while
+nothing is running, not a stale number from ten minutes ago. The Throughput graph
+wants the opposite: its legend carries a `mean` calc, and one real 0 per 5s scrape
+swamps that average over a 30m window. Its two targets therefore end in `> 0`,
+a bare PromQL comparison that drops the idle samples entirely, so the legend mean
+covers active generation only. Do not "simplify" that filter away, and do not add
+it to the stat panels.
 """
 
 from __future__ import annotations
@@ -36,6 +45,11 @@ PROMPT_TOK_S = (
     " / clamp_min(rate(llamacpp:prompt_seconds_total[$__rate_interval]), 0.001)"
 )
 
+# The Throughput graph gates both series on `> 0` so idle scrapes produce no
+# sample and the legend `mean` is not diluted by them; see the idle-zero note above.
+THROUGHPUT_GENERATION = GENERATION_TOK_S + " > 0"
+THROUGHPUT_PROMPT = PROMPT_TOK_S + " > 0"
+
 # The reset-on-poll gauges Task 7 originally used; banned from the dashboard.
 RESET_PRONE_GAUGES = (
     "llamacpp:predicted_tokens_seconds",
@@ -48,7 +62,7 @@ TASK7_PANELS = {
     "Prompt tok/s": ("stat", [PROMPT_TOK_S]),
     "Active Requests": ("stat", ["llamacpp:requests_processing"]),
     "CONTEXT HIGH-WATER": ("stat", ["llamacpp:n_tokens_max"]),
-    "Throughput": ("timeseries", [GENERATION_TOK_S, PROMPT_TOK_S]),
+    "Throughput": ("timeseries", [THROUGHPUT_GENERATION, THROUGHPUT_PROMPT]),
     "Request Activity": (
         "timeseries",
         ["llamacpp:requests_processing", "llamacpp:requests_deferred"],

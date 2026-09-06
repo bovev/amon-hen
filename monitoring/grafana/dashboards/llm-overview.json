@@ -349,7 +349,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "rate(llamacpp:tokens_predicted_total[$__rate_interval]) / clamp_min(rate(llamacpp:tokens_predicted_seconds_total[$__rate_interval]), 0.001)",
+          "expr": "rate(llamacpp:tokens_predicted_total[$__rate_interval]) / clamp_min(rate(llamacpp:tokens_predicted_seconds_total[$__rate_interval]), 0.001) > 0",
           "legendFormat": "generation",
           "refId": "A"
         },
@@ -358,7 +358,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "rate(llamacpp:prompt_tokens_total[$__rate_interval]) / clamp_min(rate(llamacpp:prompt_seconds_total[$__rate_interval]), 0.001)",
+          "expr": "rate(llamacpp:prompt_tokens_total[$__rate_interval]) / clamp_min(rate(llamacpp:prompt_seconds_total[$__rate_interval]), 0.001) > 0",
           "legendFormat": "prompt",
           "refId": "B"
         }
