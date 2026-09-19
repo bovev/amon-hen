@@ -17,3 +17,13 @@ scrape_configs:
     static_configs:
       - targets:
           - llm-server:8080
+
+  # vLLM serves /metrics without auth even when --api-key is set (the key only
+  # guards /v1/*). vllm-server is a network alias on ai-net, so swapping the
+  # model/container does not change this target. llama.cpp and vLLM run one at
+  # a time; whichever is stopped simply reads up == 0.
+  - job_name: vllm
+    metrics_path: /metrics
+    static_configs:
+      - targets:
+          - vllm-server:8080

@@ -35,6 +35,32 @@ llama-server must run with `--metrics` so it exposes `/metrics` on its
 container port. That is the only change on the llama-server side; its
 Compose stack stays separate from this repository.
 
+## vLLM requirement
+
+A vLLM server (dual R9700) is monitored alongside llama.cpp by the `vllm`
+scrape job and the `vLLM Overview` dashboard. The two backends are run one
+at a time: both jobs stay configured, and whichever server is stopped reads
+**DOWN** on its dashboard.
+
+vLLM serves `/metrics` on its API port by default, so no extra flag is needed.
+The container must join `ai-net` under the stable alias `vllm-server`. Prometheus
+scrapes `vllm-server:8080`, so the container name can change with the model
+without touching `prometheus.yml`. Add these to the vLLM `docker run` command:
+
+```bash
+--network ai-net --network-alias vllm-server
+```
+
+or attach a running container once:
+
+```bash
+docker network connect --alias vllm-server ai-net <vllm-container>
+```
+
+vLLM's `--api-key` guards only `/v1/*`, so the `vllm` job scrapes without
+credentials. If a future vLLM version starts returning 401 on `/metrics`, add
+an `authorization` block to the job the same way `llama_cpp` does.
+
 ## Pinned images
 
 Tested and deployed with:
@@ -101,6 +127,44 @@ Tested and deployed with:
   consequence is intended: the line breaks instead of flatlining at 0 while
   idle, and if the server was idle for the whole selected range the panel
   reads **No data**.
+
+## vLLM dashboard notes
+
+Every query uses only metric names confirmed on the deployed server
+(`tasks/vllm-findings.md`); `scripts/checks/vllm_panels.py` fails the build
+if a panel queries anything else. When upgrading vLLM, re-read `/metrics`
+and update both.
+
+- **The dashboard is built around concurrency.** The panels that show
+  saturation are `Running vs Waiting` (concurrency actually achieved vs
+  requests left in the queue), `KV Cache Usage`, `Preemptions / min` (requests
+  evicted because the KV cache ran out), `Queue Time`, and `Tokens per Engine
+  Step` (how full each batch is). Waiting > 0 together with KV cache near 100%
+  or preemptions > 0 means concurrency is above what the cache holds.
+- **Two throughput figures.** `Generation tok/s (total)` is wall-clock tokens
+  per second summed over *all* concurrent requests. `Per-request tok/s` is
+  the speed one user sees: `1 / mean time-per-output-token` of the requests
+  that finished in the window, so it updates when requests complete. Neither
+  is the same quantity as llama.cpp's per-processing-time tok/s; do not
+  compare the two dashboards 1:1.
+- **Latency panels are p50/p95 from histograms**
+  (`histogram_quantile` over `sum by (le)`). With no requests in the window
+  the quantile is undefined and the line breaks, which is expected.
+- **Inter-token latency with speculative decoding** measures the gap between
+  output chunks, and one chunk can hold several accepted tokens. That is
+  why per-request speed comes from `request_time_per_output_token`, not
+  `1 / ITL`.
+- **Speculative decoding.** `Speculative Acceptance %` and `Mean Acceptance
+  Length` (accepted drafts per step + 1 bonus token) are since server start;
+  `Acceptance % over Time` is windowed. `Acceptance % by Draft Position`
+  shows how often the k-th draft token survives. A steep drop after the
+  first positions means fewer speculative tokens would do as well.
+- **`(range)` stats** (prefix cache hit %, average prompt/generated tokens
+  per request, requests finished) use `increase(...[$__range])`, so they
+  follow the selected time range.
+- The same idle rules as `LLM Overview` apply: every division uses
+  `clamp_min`, time series filter idle samples with `> 0` where a legend
+  mean is shown, and stat panels do not.
 
 ## Measurements
 
