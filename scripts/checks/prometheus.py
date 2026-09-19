@@ -1,4 +1,5 @@
-"""Prometheus config — correction 1: no env templating, literal scrape target."""
+"""Prometheus config — correction 1: no env templating, literal scrape targets
+for both backends (llama_cpp and vllm)."""
 
 from __future__ import annotations
 
@@ -25,8 +26,9 @@ def check_prometheus() -> None:
         return
 
     jobs = [j.get("job_name") for j in (doc.get("scrape_configs") or [])]
-    if "llama_cpp" not in jobs:
-        problems.append(f"no scrape job named 'llama_cpp' (found {jobs})")
+    for expected in ("llama_cpp", "vllm"):
+        if expected not in jobs:
+            problems.append(f"no scrape job named {expected!r} (found {jobs})")
 
     if problems:
         fail("prometheus.yml", "; ".join(problems))

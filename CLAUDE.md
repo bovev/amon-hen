@@ -23,7 +23,8 @@ monitoring/
 ├── grafana/
 │   ├── provisioning/datasources/prometheus.yml   # points at http://prometheus:9090
 │   └── provisioning/dashboards/dashboards.yml    # loads from /var/lib/grafana/dashboards
-│   └── dashboards/llm-overview.json
+│   └── dashboards/llm-overview.json            # llama.cpp (job llama_cpp)
+│   └── dashboards/vllm-overview.json           # vLLM (job vllm)
 └── exporters/gpu/                                # Phase 2 only
 ```
 
@@ -58,6 +59,10 @@ Dashboard: http://localhost:3001
 Speculative decoding (MTP) is in use, so the dashboard includes a draft-token acceptance rate; the query must handle division by zero when no speculative decoding has occurred yet.
 
 Server reachability is shown with the standard `up{job="llama_cpp"}`.
+
+## Working with vLLM metrics
+
+A second backend, vLLM (dual R9700), is scraped by job `vllm` at `vllm-server:8080`, a network alias on `ai-net`. llama.cpp and vLLM run one at a time; the stopped one reads `up == 0`. The same verify-before-querying rule applies: confirmed names live in `tasks/vllm-findings.md` and `CONFIRMED_METRICS` in `scripts/checks/vllm_panels.py`. vLLM throughput (`rate(vllm:generation_tokens_total)`) is wall-clock aggregate across concurrent requests, not llama.cpp's per-processing-time figure.
 
 ## Phasing
 
